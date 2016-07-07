@@ -1,6 +1,6 @@
 package de.scrubstudios.ev3.delta;
 
-public class DeltaKin {
+public class Kinematics {
 
 	public boolean isValidPos = true;
 
@@ -41,7 +41,7 @@ public class DeltaKin {
 
 	// CONSTRUCTOR ================================================================================
 
-	public DeltaKin() {
+	public Kinematics() {
 	}
 
 	// INVERSE KINEMATICS =========================================================================
@@ -136,6 +136,4 @@ public class DeltaKin {
 		return pos;
 	}
 	
-
-
 }
