@@ -1,8 +1,12 @@
 package de.scrubstudios.ev3.delta;
 
 import java.rmi.RemoteException;
+import java.util.ArrayList;
+import java.util.List;
 
 import de.scrubstudios.ev3.SimpleTouch;
+import de.scrubstudios.ev3.Ang3;
+import de.scrubstudios.ev3.Pos3;
 import lejos.hardware.Brick;
 import lejos.hardware.BrickFinder;
 import lejos.hardware.Sound;
@@ -129,7 +133,7 @@ public class DeltaBot {
 	public void setMotorAngles(int a1, int a2, int a3) {
 
 		int[] angles = new int[] { a1, a2, a3 };
-		for ( int i = 0; i < angles.length; i++ ) {
+		for ( int i = 0; i < angles.length; ++i ) {
 			motors[i].rotateTo( angles[i], true );
 		}
 	}
@@ -144,7 +148,7 @@ public class DeltaBot {
 	public void setJointAngles(int a1, int a2, int a3) {
 
 		int[] angles = new int[] { a1, a2, a3 };
-		for ( int i = 0; i < angles.length; i++ ) {
+		for ( int i = 0; i < angles.length; ++i ) {
 			motors[i].rotateTo( angles[i] * GEAR_RATIO, true );
 		}
 	}
@@ -309,17 +313,43 @@ public class DeltaBot {
 		int[] thetas = new int[] { t1, t2, t3 };
 		return calcFK( thetas );
 	}
+	
+	public void calcPath(int[] posd, int minDist) {
+		
+		int[] pos0 = new int[3];
+		pos0 = getCurrentPos();
+
+		float length = getDist( posd, pos0 );
+
+		float[] inc = new float[3];
+		for ( int i = 0; i < inc.length; ++i ) {
+			inc[i] = (posd[i] - pos0[i]) / (length / minDist);
+		}
+		
+		int[][] thetas = new int[(int) Math.floor( (length / minDist) + 2 )][3];
+
+		for ( int i = 0; i < ((length / minDist) + 1); ++i ) {
+			int[] thetas_ = new int[3];
+			thetas_ = (calcIK( pos0[0] + i * inc[0], pos0[1] + i * inc[1], pos0[2] + i * inc[2] ));
+			thetas[i][0] = thetas_[0] * GEAR_RATIO;
+			thetas[i][1] = thetas_[1] * GEAR_RATIO;
+			thetas[i][2] = thetas_[2] * GEAR_RATIO;
+		}
+		
+		List<Integer[]> path = new ArrayList<>();
+		
+		
+		
+	}
 
 	public void moveHome() {
 
 		setMotorAngles( 0, 0, 0 );
 	}
 
-	public void moveToPos(int xd, int yd, int zd, int minDist) {
-
-		int[] posd = new int[] { xd, yd, zd };
+	public void moveToPos(int[] posd, int minDist) {
+			
 		int[] pos0 = new int[3];
-
 		pos0 = getCurrentPos();
 
 		float length = getDist( posd, pos0 );
@@ -346,14 +376,17 @@ public class DeltaBot {
 			setMotorAngles( thetas[i][0], thetas[i][1], thetas[i][2] );
 			// Delay.msDelay( 50 );
 		}
-		while ( motors[0].isMoving() || motors[1].isMoving() || motors[2].isMoving() ) {
-
-		}
+		motorsWaitComplete();
 		ev3.getLED().setPattern( 1 );
 		ev3.getAudio().systemSound( 1 );
 		Delay.msDelay( 250 );
 		ev3.getLED().setPattern( 0 );
 
+	}
+	
+	public void moveToPos(int xd, int yd, int zd, int minDist) {
+		int[] posd = new int[] { xd, yd, zd };
+		moveToPos(posd, minDist);
 	}
 
 	public static void main(String[] args) {
@@ -370,6 +403,7 @@ public class DeltaBot {
 		pos = delta.getCurrentPos();
 		for ( int i = 0; i < pos.length; ++i ) {
 			System.out.println( pos[i] );
+			
 		}
 	}
 }
