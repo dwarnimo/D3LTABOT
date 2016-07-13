@@ -23,7 +23,8 @@ import lejos.utility.Delay;
 @SuppressWarnings("unused")
 public class DeltaBot {
 
-	// ROBOT GEOMETRY =============================================================================
+	// ROBOT GEOMETRY
+	// ============================================================================================
 
 	// radius from base center to shoulder joint
 	public static final float BASE = 66.4f;
@@ -35,15 +36,16 @@ public class DeltaBot {
 	public static final int BICEP = 80;
 
 	// length of lower arm (length from elbow joint to wrist joint)
-	public static final int FOREARM = 200;
+	public static final int FOREARM = 208;
 
 	// number of motor revolutions required for one rotation of shoulder joint
 	public static final int GEAR_RATIO = -24;
 
-	// TRIGONOMETRIC CONSTANTS ====================================================================
+	// TRIGONOMETRIC CONSTANTS
+	// ============================================================================================
 
 	private static final float PI = 3.141592f;
-	private static final float SQRT3 = (float) Math.sqrt( 3 );
+	private static final float SQRT3 = (float) Math.sqrt(3);
 	private static final float SIN120 = SQRT3 / 2;
 	private static final float COS120 = -0.5f;
 	private static final float TAN60 = SQRT3;
@@ -52,7 +54,8 @@ public class DeltaBot {
 	private static final float D2R = PI / 180; // deg to rad
 	private static final float R2D = 180 / PI; // rad to deg
 
-	// EV3 COMPONENTS =============================================================================
+	// EV3 COMPONENTS
+	// ============================================================================================
 
 	private Brick ev3;
 	private RegulatedMotor[] motors = new RegulatedMotor[3];
@@ -64,7 +67,8 @@ public class DeltaBot {
 
 	private boolean isValidPos = true;
 
-	// CONSTRUCTOR ================================================================================
+	// CONSTRUCTOR
+	// ============================================================================================
 
 	public DeltaBot() {
 
@@ -76,57 +80,53 @@ public class DeltaBot {
 	 * initialize ev3 components
 	 */
 	private void init() {
-
 		ev3 = BrickFinder.getLocal();
-
-		motors[0] = new EV3LargeRegulatedMotor( ev3.getPort( "A" ) );
-		motors[1] = new EV3LargeRegulatedMotor( ev3.getPort( "B" ) );
-		motors[2] = new EV3LargeRegulatedMotor( ev3.getPort( "C" ) );
-		poti = new EV3MediumRegulatedMotor( ev3.getPort( "D" ) );
-
-		ir = new EV3IRSensor( ev3.getPort( "S1" ) );
-		touch = new EV3TouchSensor( ev3.getPort( "S2" ) );
+		motors[0] = new EV3LargeRegulatedMotor(ev3.getPort("A"));
+		motors[1] = new EV3LargeRegulatedMotor(ev3.getPort("B"));
+		motors[2] = new EV3LargeRegulatedMotor(ev3.getPort("C"));
+		poti = new EV3MediumRegulatedMotor(ev3.getPort("D"));
+		ir = new EV3IRSensor(ev3.getPort("S1"));
+		touch = new EV3TouchSensor(ev3.getPort("S2"));
 		samp = touch.getTouchMode();
-		touch1 = new SimpleTouch( samp );
-
+		touch1 = new SimpleTouch(samp);
 	}
 
 	/*
-	 * manual calibration sequence. rotate wheel until the arm is in 0 position (horizontal) and the
-	 * press the button to set the new 0 position. repeat for each arm.
+	 * manual calibration sequence. rotate wheel until the arm is in 0 position
+	 * (horizontal) and the press the button to set the new 0 position. repeat
+	 * for each arm.
 	 */
 	public void calibrate() {
-
-		for ( RegulatedMotor m : motors ) {
+		for (RegulatedMotor m : motors) {
 			int theta;
-			while ( !touch1.isPressed() ) {
+			while (!touch1.isPressed()) {
 				theta = poti.getTachoCount();
-				LCD.drawString( "Theta: " + theta, 1, 1 );
-				m.rotateTo( theta, true );
-				Delay.msDelay( 50 );
+				LCD.drawString("Theta: " + theta, 1, 1);
+				m.rotateTo(theta, true);
+				Delay.msDelay(50);
 				LCD.clear();
 			}
 			m.resetTachoCount();
 			poti.resetTachoCount();
 			LCD.clear();
 			Sound.beep();
-			while ( touch1.isPressed() ) {
-				Delay.msDelay( 50 );
+			while (touch1.isPressed()) {
+				Delay.msDelay(50);
 			}
 		}
-		Delay.msDelay( 500 );
+		Delay.msDelay(500);
 		Sound.beepSequenceUp();
 	}
 
-	// SETTERS & GETTERS ==========================================================================
+	// SETTERS & GETTERS
+	// ============================================================================================
 
 	/*
 	 * set motor speed for all motors
 	 */
 	public void setMotorSpeed(int speed) {
-
-		for ( RegulatedMotor m : motors ) {
-			m.setSpeed( speed );
+		for (RegulatedMotor m : motors) {
+			m.setSpeed(speed);
 		}
 	}
 
@@ -134,9 +134,8 @@ public class DeltaBot {
 	 * set desired acceleration for all motors
 	 */
 	public void setMotorAcc(int acc) {
-
-		for ( RegulatedMotor m : motors ) {
-			m.setAcceleration( acc );
+		for (RegulatedMotor m : motors) {
+			m.setAcceleration(acc);
 		}
 	}
 
@@ -144,18 +143,15 @@ public class DeltaBot {
 	 * set and move to the desired MOTOR angles
 	 */
 	public void setMotorAngles(Ang3 ang) {
-
-		motors[0].rotateTo( (int) ang.t1, true );
-		motors[1].rotateTo( (int) ang.t2, true );
-		motors[2].rotateTo( (int) ang.t3, true );
-
+		motors[0].rotateTo((int) ang.t1, true);
+		motors[1].rotateTo((int) ang.t2, true);
+		motors[2].rotateTo((int) ang.t3, true);
 	}
 
 	public void setMotorAngles(int t1, int t2, int t3) {
-
 		int[] ang = new int[] { t1, t2, t3 };
-		for ( int i = 0; i < motors.length; ++i ) {
-			motors[i].rotateTo( ang[i], true );
+		for (int i = 0; i < motors.length; ++i) {
+			motors[i].rotateTo(ang[i], true);
 		}
 	}
 
@@ -163,18 +159,15 @@ public class DeltaBot {
 	 * set and move to the desired JOINT angles
 	 */
 	public void setJointAngles(Ang3 ang) {
-
-		motors[0].rotateTo( (int) ang.t1 * GEAR_RATIO, true );
-		motors[1].rotateTo( (int) ang.t2 * GEAR_RATIO, true );
-		motors[2].rotateTo( (int) ang.t3 * GEAR_RATIO, true );
-
+		motors[0].rotateTo((int) ang.t1 * GEAR_RATIO, true);
+		motors[1].rotateTo((int) ang.t2 * GEAR_RATIO, true);
+		motors[2].rotateTo((int) ang.t3 * GEAR_RATIO, true);
 	}
 
 	public void setJointAngles(int t1, int t2, int t3) {
-
 		int[] ang = new int[] { t1, t2, t3 };
-		for ( int i = 0; i < motors.length; ++i ) {
-			motors[i].rotateTo( ang[i] * GEAR_RATIO, true );
+		for (int i = 0; i < motors.length; ++i) {
+			motors[i].rotateTo(ang[i] * GEAR_RATIO, true);
 		}
 	}
 
@@ -182,105 +175,94 @@ public class DeltaBot {
 	 * get the current angles of the shoulder joints
 	 */
 	public Ang3 getJointAngles() {
-
-		Ang3 ang = new Ang3();
-		ang.setT1( motors[0].getTachoCount() / GEAR_RATIO );
-		ang.setT2( motors[1].getTachoCount() / GEAR_RATIO );
-		ang.setT3( motors[2].getTachoCount() / GEAR_RATIO );
-		return ang;
+		return new Ang3(motors[0].getTachoCount() / GEAR_RATIO, 
+						motors[1].getTachoCount() / GEAR_RATIO,
+						motors[2].getTachoCount() / GEAR_RATIO);
 	}
 
 	/*
 	 * get the actual motor angles for the current joint angles
 	 */
 	public Ang3 getMotorAngles() {
-
-		Ang3 ang = new Ang3();
-		ang.setT1( motors[0].getTachoCount() );
-		ang.setT2( motors[1].getTachoCount() );
-		ang.setT3( motors[2].getTachoCount() );
-		return ang;
+		return new Ang3(motors[0].getTachoCount(), 
+						motors[1].getTachoCount(), 
+						motors[2].getTachoCount());
 	}
 
 	/*
 	 * get the current end-effector position
 	 */
 	public Pos3 getCurrentPos() {
-
-		return calcFK( getJointAngles() );
+		return calcFK(getJointAngles());
 	}
 
-	// MISC METHODS ===============================================================================
+	// MISC METHODS
+	// ============================================================================================
 
 	/*
 	 * wait until all motors have stopped moving
 	 */
 	public void motorsWaitComplete() {
-
-		while ( motors[0].isMoving() || motors[1].isMoving() || motors[2].isMoving() ) {
-			Delay.msDelay( 10 );
+		while (motors[0].isMoving() || motors[1].isMoving() || motors[2].isMoving()) {
+			Delay.msDelay(10);
 		}
-		ev3.getAudio().systemSound( 0 );
+		ev3.getAudio().systemSound(0);
 	}
 
 	/*
 	 * close all open ports
 	 */
 	public void closePorts() {
-
-		for ( RegulatedMotor m : motors ) {
+		for (RegulatedMotor m : motors) {
 			m.close();
 		}
 		ir.close();
 		touch.close();
 	}
 
-	// INVERSE KINEMATICS =========================================================================
+	// INVERSE KINEMATICS
+	// ============================================================================================
 
 	/*
-	 * helper function to generate the joint angle for the YZ-plane for the specified position
+	 * helper function to generate the joint angle for the YZ-plane for the
+	 * specified position
 	 */
 	private float calcAngYZ(Pos3 pos) {
-
 		float theta = 0;
-		float L3 = (float) Math.sqrt( FOREARM * FOREARM - pos.x * pos.x );
+		float L3 = (float) Math.sqrt(FOREARM * FOREARM - pos.x * pos.x);
 		float Ay = -BASE;
 		float PCy = pos.y - EE;
-		float dn = (float) (BICEP + Math.sqrt( FOREARM * FOREARM - (Ay - PCy) * (Ay - PCy) ));
+		float dn = (float) (BICEP + Math.sqrt(FOREARM * FOREARM - (Ay - PCy) * (Ay - PCy)));
 
-		if ( Math.abs( pos.z ) <= dn ) {
-			
+		if (Math.abs(pos.z) <= dn) {
+
 			float a = (4 * pos.z * pos.z + (2 * Ay - 2 * PCy) * (2 * Ay - 2 * PCy));
 			
-			float b = (-8 * Ay * pos.z * pos.z + (4 * Ay - 4 * PCy)
-						* (BICEP * BICEP - L3 * L3 - Ay * Ay + PCy * PCy + pos.z * pos.z));
-			
-			float c = (4 * Ay * Ay * pos.z * pos.z - (4 * pos.z * pos.z) * (BICEP * BICEP)
-						+ (BICEP * BICEP - L3 * L3 - Ay * Ay + PCy * PCy + pos.z * pos.z)
-						* (BICEP * BICEP - L3 * L3 - Ay * Ay + PCy * PCy + pos.z * pos.z));
-			
-			float D = (float) Math.sqrt( b * b - 4 * a * c );
-			
+			float b = (-8 * Ay * pos.z * pos.z + (4 * Ay - 4 * PCy) * (BICEP * BICEP 
+					- L3 * L3 - Ay * Ay + PCy * PCy + pos.z * pos.z));
+
+			float c = (4 * Ay * Ay * pos.z * pos.z - (4 * pos.z * pos.z) * (BICEP * BICEP) 
+					+ (BICEP * BICEP - L3 * L3 - Ay * Ay + PCy * PCy + pos.z * pos.z) 
+					* (BICEP * BICEP - L3 * L3 - Ay * Ay + PCy * PCy + pos.z * pos.z));
+
+			float D = (float) Math.sqrt(b * b - 4 * a * c);
+
 			float By1 = (-b - D) / (2 * a);
 			float By2 = (-b + D) / (2 * a);
 
-			if ( Math.abs( By1 ) > Math.abs( By2 ) ) {
+			if (Math.abs(By1) > Math.abs(By2)) {
+				float Bz1 = (By1 * (2 * Ay - 2 * PCy) + BICEP * BICEP 
+						  - L3 * L3 - Ay * Ay + PCy * PCy + pos.z * pos.z) / (2 * pos.z);
 				
-				float Bz1 = (By1 * (2 * Ay - 2 * PCy) + BICEP * BICEP - L3 * L3 - Ay * Ay
-							+ PCy * PCy + pos.z * pos.z) / (2 * pos.z);
-				
-				theta = (float) (Math.atan( Bz1 / (Ay - By1) ) * R2D);
-				
+				theta = (float) (Math.atan(Bz1 / (Ay - By1)) * R2D);
 			} else {
+				float Bz1 = (By2 * (2 * Ay - 2 * PCy) + BICEP * BICEP 
+						  - L3 * L3 - Ay * Ay + PCy * PCy + pos.z * pos.z) / (2 * pos.z);
 				
-				float Bz1 = (By2 * (2 * Ay - 2 * PCy) + BICEP * BICEP - L3 * L3 - Ay * Ay
-						+ PCy * PCy + pos.z * pos.z) / (2 * pos.z);
-				
-				theta = (float) (Math.atan( Bz1 / (Ay - By2) ) * R2D);
-				
+				theta = (float) (Math.atan(Bz1 / (Ay - By2)) * R2D);
 			}
 			isValidPos = true;
-			return (float) theta;
+			return theta;
 		} else {
 			isValidPos = false;
 		}
@@ -288,47 +270,46 @@ public class DeltaBot {
 	}
 
 	/*
-	 * calculate the joint angles t1, t2, t3 for the specified position
+	 * calculate the joint angles t1, t2, t3 for the specified position.
+	 * for t2 and t3 the word coordinate system is rotated by 120 and 240
+	 * degrees respectively.
 	 */
 	public Ang3 calcIK(Pos3 pos) {
-
-		float t1 = calcAngYZ( pos ); // 0 deg -> no rotation necessary
-		float t2 = calcAngYZ( pos.rotZ( 120 * D2R ) ); // rotate the coordinate system by 120 deg
-		float t3 = calcAngYZ( pos.rotZ( 240 * D2R ) ); // rotate the coordinate system by 240 deg
-		Ang3 ang = new Ang3( t1, t2, t3 );
-		return ang;
+		int t1 = (int) calcAngYZ(pos);
+		int t2 = (int) calcAngYZ(pos.rotZ(120 * D2R));
+		int t3 = (int) calcAngYZ(pos.rotZ(240 * D2R));												
+		return new Ang3(t1, t2, t3);
 	}
 
 	/*
 	 * calculate the joint angles t1, t2, t3 for the specified coordinates x, y, z
 	 */
 	public Ang3 calcIK(float x, float y, float z) {
-
-		Pos3 pos = new Pos3( x, y, z );
-		return calcIK( pos );
+		return calcIK(new Pos3(x, y, z));
 	}
 
-	// FORWARD KINEMATICS =========================================================================
+	// FORWARD KINEMATICS
+	// ============================================================================================
 
 	/*
-	 * calculate the end-effector position for the specified joint angles t1, t2, t3
+	 * calculate the end-effector position for the specified joint angles t1,
+	 * t2, t3
 	 */
 	public Pos3 calcFK(Ang3 ang) {
-
 		ang.t1 *= D2R;
 		ang.t2 *= D2R;
 		ang.t3 *= D2R;
 
-		float y1 = (float) -(BASE - EE + BICEP * Math.cos( ang.t1 ));
-		float z1 = (float) (-BICEP * Math.sin( ang.t1 ));
+		float y1 = (float) -(BASE - EE + BICEP * Math.cos(ang.t1));
+		float z1 = (float) (-BICEP * Math.sin(ang.t1));
 
-		float y2 = (float) ((BASE - EE + BICEP * Math.cos( ang.t2 )) * SIN30);
+		float y2 = (float) ((BASE - EE + BICEP * Math.cos(ang.t2)) * SIN30);
 		float x2 = y2 * TAN60;
-		float z2 = (float) (-BICEP * Math.sin( ang.t2 ));
+		float z2 = (float) (-BICEP * Math.sin(ang.t2));
 
-		float y3 = (float) ((BASE - EE + BICEP * Math.cos( ang.t3 )) * SIN30);
+		float y3 = (float) ((BASE - EE + BICEP * Math.cos(ang.t3)) * SIN30);
 		float x3 = -y3 * TAN60;
-		float z3 = (float) (-BICEP * Math.sin( ang.t3 ));
+		float z3 = (float) (-BICEP * Math.sin(ang.t3));
 
 		float dnm = (y2 - y1) * x3 - (y3 - y1) * x2;
 
@@ -351,79 +332,76 @@ public class DeltaBot {
 
 		// discriminant
 		float d = b * b - 4 * a * c;
-		if ( d < 0 ) {
+		if (d < 0) {
 			// TODO
 		}
 
-		float z0 = (float) (-(-b + Math.sqrt( d )) / (2 * a));
+		float z0 = (float) (-(-b + Math.sqrt(d)) / (2 * a));
 		float x0 = (-a1 * z0 + b1);
 		float y0 = (-a2 * z0 + b2);
 
-		Pos3 pos = new Pos3( x0, y0, z0 );
-
-		return pos;
+		return new Pos3(x0, y0, z0);
 	}
 
 	/*
-	 * calculate the end-effector position for the specified joint angles t1, t2, t3
+	 * calculate the end-effector position for the specified joint angles t1,
+	 * t2, t3
 	 */
 	public Pos3 calcFK(float t1, float t2, float t3) {
-
-		Ang3 ang = new Ang3( t1, t2, t3 );
-		return calcFK( ang );
+		return calcFK(new Ang3(t1, t2, t3));
 	}
 
-	// PATH GENERATION ============================================================================
+	// PATH GENERATION
+	// ============================================================================================
 
 	/*
-	 * calculate points between current and desired position using linear interpolation. a lower
-	 * minimum distance means more intermediate points are generated.
+	 * calculate points between current and desired position using linear
+	 * interpolation. a lower minimum distance means more intermediate points
+	 * are generated.
 	 */
 	private List<Pos3> interp(Pos3 posd, int minDist) {
-
-		Pos3 pos0 = new Pos3( getCurrentPos() );
-
-		float dist = pos0.getDist( posd );
+		Pos3 pos0 = new Pos3(getCurrentPos());
+		float dist = pos0.getDist(posd);
 		float steps = dist / minDist;
 		float stepSize = dist / steps;
-
-		Pos3 normDir = pos0.normDir( posd );
-
+		Pos3 normDir = pos0.normDir(posd);
+// FIXME try i = 1
 		List<Pos3> points = new ArrayList<>();
-		for ( int i = 0; i < steps; i++ ) {
-			points.add( new Pos3( pos0.x + normDir.x * stepSize * i,
-					pos0.y + normDir.y * stepSize * i, pos0.z + normDir.z * stepSize * i ) );
+		for (int i = 0; i < steps; ++i) {
+			points.add(new Pos3(pos0.x + normDir.x * stepSize * i, pos0.y + normDir.y * stepSize * i,
+					pos0.z + normDir.z * stepSize * i));
 		}
 		return points;
 	}
 
 	/*
-	 * iterate through the list of points and calculate the joint angles for each point
+	 * iterate through the list of points and calculate the joint angles for
+	 * each point
 	 */
 	private List<Ang3> calcAngles(List<Pos3> points) {
-
 		List<Ang3> angles = new ArrayList<>();
-		for ( Iterator<Pos3> iter = points.iterator(); iter.hasNext(); ) {
+		for (Iterator<Pos3> iter = points.iterator(); iter.hasNext();) {
 			Pos3 currentPoint = iter.next();
-			angles.add( calcIK( currentPoint ) );
+			angles.add(calcIK(currentPoint));
 		}
 		return angles;
 	}
 
-	// MOVEMENT METHODS ===========================================================================
+	// MOVEMENT METHODS
+	// ============================================================================================
 
 	/*
-	 * move smoothly to the desired position in a straight line. intermediate points are calculated
-	 * using linear interpolation
+	 * move smoothly to the desired position in a straight line. intermediate
+	 * points are calculated using linear interpolation
 	 */
 	public void moveToPosLin(Pos3 posd, int minDist) {
-
 		List<Ang3> angles = new ArrayList<>();
-		angles = calcAngles( interp( posd, minDist ) );
-
-		for ( Iterator<Ang3> iter = angles.iterator(); iter.hasNext(); ) {
-			Ang3 currentAng = iter.next();
-			setMotorAngles( currentAng );
+		angles = calcAngles(interp(posd, minDist));
+		Iterator<Ang3> iter = angles.iterator();
+		while (iter.hasNext()) {
+			Ang3 current = iter.next();
+			setJointAngles(current);
+			Delay.msDelay(25);
 		}
 		motorsWaitComplete();
 	}
@@ -432,35 +410,39 @@ public class DeltaBot {
 	 * move directly to the desired position without using intermediate points
 	 */
 	public void moveToPosDirect(Pos3 pos) {
-
-		setJointAngles( calcIK( pos ) );
+		setJointAngles(calcIK(pos));
 	}
 
 	/*
 	 * move robot to home position
 	 */
 	public void moveHome() {
-
-		setMotorAngles( 0, 0, 0 );
+		setMotorAngles(0, 0, 0);
 	}
 
-	// MAIN METHOD ================================================================================
+	// MAIN METHOD
+	// ============================================================================================
 
 	public static void main(String[] args) {
-
 		DeltaBot delta = new DeltaBot();
 
-		Ang3 angles = new Ang3( delta.calcIK( 50, 0, -180 ) );
-		System.out.println( angles.toString() );
+		delta.setMotorSpeed(800);
+		delta.setMotorAcc(1000);
 
-		Pos3 pos = new Pos3( delta.calcFK( angles ) );
-		System.out.println( pos.toString() );
+		delta.moveToPosLin(new Pos3(0, 0, -200), 1);
+		delta.motorsWaitComplete();
+		Delay.msDelay(2000);
 
-		// List<Pos3> points = new ArrayList<>();
-		// points = delta.interp( new Pos3(50, 0,-180), 1 );
-		//
-		// List<Ang3> angles = new ArrayList<>();
-		// angles = delta.calcAngles( points );
+		delta.moveToPosLin(new Pos3(-50, 0, -200), 1);
+		delta.motorsWaitComplete();
+		Delay.msDelay(2000);
+
+		delta.moveToPosLin(new Pos3(50, 0, -180), 1);
+		delta.motorsWaitComplete();
+		Delay.msDelay(2000);
+
+		delta.moveHome();
+		delta.motorsWaitComplete();
 
 		delta.closePorts();
 	}
