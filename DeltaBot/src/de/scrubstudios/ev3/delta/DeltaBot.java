@@ -72,7 +72,7 @@ public class DeltaBot {
 	public DeltaBot() {
 
 		init();
-		calibrate();
+//		calibrate();
 	}
 
 	private void init() {
@@ -132,53 +132,55 @@ public class DeltaBot {
 
 	public void setMotorAngles(int a1, int a2, int a3) {
 
-		int[] angles = new int[] { a1, a2, a3 };
-		for ( int i = 0; i < angles.length; ++i ) {
-			motors[i].rotateTo( angles[i], true );
+		int[] ang = new int[] { a1, a2, a3 };
+		for ( int i = 0; i < motors.length; ++i ) {
+			motors[i].rotateTo( ang[i], true );
 		}
 	}
 
-	public void setMotorAngles(int[] angles) {
+	public void setMotorAngles(Ang3 ang) {
 
-		for ( int i = 0; i < motors.length; ++i ) {
-			motors[i].rotateTo( angles[i], true );
-		}
+		motors[0].rotateTo( (int) ang.t1, true );
+		motors[1].rotateTo( (int) ang.t2, true );
+		motors[2].rotateTo( (int) ang.t3, true );
+		
 	}
 
 	public void setJointAngles(int a1, int a2, int a3) {
 
-		int[] angles = new int[] { a1, a2, a3 };
-		for ( int i = 0; i < angles.length; ++i ) {
-			motors[i].rotateTo( angles[i] * GEAR_RATIO, true );
-		}
-	}
-
-	public void setJointAngles(int[] angles) {
-
+		int[] ang = new int[] { a1, a2, a3 };
 		for ( int i = 0; i < motors.length; ++i ) {
-			motors[i].rotateTo( angles[i] * GEAR_RATIO, true );
+			motors[i].rotateTo( ang[i] * GEAR_RATIO, true );
 		}
 	}
 
-	public int[] getJointAngles() {
+	public void setJointAngles(Ang3 ang) {
 
-		int[] angles = new int[3];
-		for ( int i = 0; i < motors.length; ++i ) {
-			angles[i] = motors[i].getTachoCount() / GEAR_RATIO;
-		}
-		return angles;
+		motors[0].rotateTo( (int) ang.t1 * GEAR_RATIO, true );
+		motors[1].rotateTo( (int) ang.t2 * GEAR_RATIO, true );
+		motors[2].rotateTo( (int) ang.t3 * GEAR_RATIO, true );
+		
 	}
 
-	public int[] getMotorAngles() {
-
-		int[] angles = new int[3];
-		for ( int i = 0; i < motors.length; ++i ) {
-			angles[i] = motors[i].getTachoCount();
-		}
-		return angles;
+	public Ang3 getJointAngles() {
+		
+		Ang3 ang = new Ang3();
+		ang.setT1( motors[0].getTachoCount() / GEAR_RATIO );
+		ang.setT2( motors[1].getTachoCount() / GEAR_RATIO );
+		ang.setT3( motors[2].getTachoCount() / GEAR_RATIO );
+		return ang;
 	}
 
-	public int[] getCurrentPos() {
+	public Ang3 getMotorAngles() {
+		
+		Ang3 ang = new Ang3();
+		ang.setT1( motors[0].getTachoCount() );
+		ang.setT2( motors[1].getTachoCount() );
+		ang.setT3( motors[2].getTachoCount() );
+		return ang;
+	}
+
+	public Pos3 getCurrentPos() {
 
 		return calcFK( getJointAngles() );
 	}
@@ -202,20 +204,13 @@ public class DeltaBot {
 		touch.close();
 	}
 
-	public float getDist(int[] p1, int[] p2) {
-
-		float dist = (float) Math.sqrt( (p2[0] - p1[0]) * (p2[0] - p1[0]) + (p2[1] - p1[1]) * (p2[1] - p1[1])
-				+ (p2[2] - p1[2]) * (p2[2] - p1[2]) );
-		return dist;
-	}
-
 	// INVERSE KINEMATICS =========================================================================
 
-	private int CalcAngYZ(float x0, float y0, float z0) {
+	private float CalcAngYZ(Pos3 pos) {
 
-		y0 += EE - BASE; //
-		float A = (x0 * x0 + y0 * y0 + z0 * z0 + BICEP_SQ - FOREARM_SQ) / (2 * z0);
-		float B = y0 / z0;
+		pos.y += EE - BASE; //
+		float A = (pos.dot( pos ) + BICEP_SQ - FOREARM_SQ) / (2 * pos.z);
+		float B = pos.y / pos.z;
 		float a = B * B + 1;
 		float b = -2 * A * B;
 		float c = A * A - BICEP_SQ;
@@ -226,51 +221,42 @@ public class DeltaBot {
 		}
 		float y = (float) ((-b + Math.sqrt( D )) / (2 * a));
 		float z = A - y * B;
-		return (int) Math.rint( (Math.atan2( z, y ) * R2D * GEAR_RATIO) );
+		return (float) (Math.atan2( z, y ) * R2D * GEAR_RATIO);
 	}
 
-	public int[] calcIK(float[] pos0) {
+	public Ang3 calcIK(Pos3 pos) {
 
-		int[] angles = new int[3];
-		angles[0] = CalcAngYZ( pos0[0], pos0[1], pos0[2] );
-		
-		angles[1] = CalcAngYZ( pos0[0] * COS120 + pos0[1] * SIN120,
-							   pos0[1] * COS120 - pos0[0] * SIN120, 
-							   pos0[2] );
-		
-		angles[2] = CalcAngYZ( pos0[0] * COS120 - pos0[1] * SIN120,
-							   pos0[1] * COS120 + pos0[0] * SIN120,
-							   pos0[2] );
-
-		return angles;
+		float t1 = CalcAngYZ( pos );
+		float t2 = CalcAngYZ( pos.rotZ( 120 * D2R ) );
+		float t3 = CalcAngYZ( pos.rotZ( 240 * D2R ) );
+		Ang3 ang = new Ang3(t1, t2, t3);
+		return ang;
 	}
 
-	public int[] calcIK(float x0, float y0, float z0) {
+	public Ang3 calcIK(float x, float y, float z) {
 
-		float[] pos0 = new float[] { x0, y0, z0 };
-		return calcIK( pos0 );
+		Pos3 pos = new Pos3(x, y, z);
+		return calcIK( pos );
 	}
 
 	// FORWARD KINEMATICS =========================================================================
 
-	public int[] calcFK(int[] thetas) {
+	public Pos3 calcFK(Ang3 ang) {
 
-		int[] pos = new int[3];
+		ang.t1 *= D2R;
+		ang.t2 *= D2R;
+		ang.t3 *= D2R;
 
-		thetas[0] *= D2R;
-		thetas[1] *= D2R;
-		thetas[2] *= D2R;
+		float y1 = (float) -(BASE - EE + BICEP * Math.cos( ang.t1 ));
+		float z1 = (float) (-BICEP * Math.sin( ang.t1 ));
 
-		float y1 = (float) -(BASE - EE + BICEP * Math.cos( thetas[0] ));
-		float z1 = (float) (-BICEP * Math.sin( thetas[0] ));
-
-		float y2 = (float) ((BASE - EE + BICEP * Math.cos( thetas[1] )) * SIN30);
+		float y2 = (float) ((BASE - EE + BICEP * Math.cos( ang.t2 )) * SIN30);
 		float x2 = y2 * TAN60;
-		float z2 = (float) (-BICEP * Math.sin( thetas[1] ));
+		float z2 = (float) (-BICEP * Math.sin( ang.t2 ));
 
-		float y3 = (float) ((BASE - EE + BICEP * Math.cos( thetas[2] )) * SIN30);
+		float y3 = (float) ((BASE - EE + BICEP * Math.cos( ang.t3 )) * SIN30);
 		float x3 = -y3 * TAN60;
-		float z3 = (float) (-BICEP * Math.sin( thetas[2] ));
+		float z3 = (float) (-BICEP * Math.sin( ang.t3 ));
 
 		float dnm = (y2 - y1) * x3 - (y3 - y1) * x2;
 
@@ -301,45 +287,40 @@ public class DeltaBot {
 		float x0 = (-a1 * z0 + b1);
 		float y0 = (-a2 * z0 + b2);
 
-		pos[0] = (int) Math.round( x0 );
-		pos[1] = (int) Math.round( y0 );
-		pos[2] = (int) Math.round( z0 );
+		Pos3 pos = new Pos3(x0,y0,z0);
 
 		return pos;
 	}
 
-	public int[] calcFK(int t1, int t2, int t3) {
+	public Pos3 calcFK(float t1, float t2, float t3) {
 
-		int[] thetas = new int[] { t1, t2, t3 };
-		return calcFK( thetas );
+		Ang3 ang = new Ang3(t1, t2, t3);
+		return calcFK( ang );
 	}
 	
-	public void calcPath(int[] posd, int minDist) {
+	// MOVEMENT METHODS ===========================================================================
+	
+	public void lerp(Pos3 posd, int minDist) {
 		
-		int[] pos0 = new int[3];
-		pos0 = getCurrentPos();
+		Pos3 pos0 = new Pos3(getCurrentPos());
 
-		float length = getDist( posd, pos0 );
+		float dist = pos0.getDist( posd );
+		float steps = dist / minDist;
+		float stepSize = dist / steps;
 
-		float[] inc = new float[3];
-		for ( int i = 0; i < inc.length; ++i ) {
-			inc[i] = (posd[i] - pos0[i]) / (length / minDist);
+		Pos3 normDir = pos0.normDir( posd );
+		
+		List<Pos3> points = new ArrayList<>();
+		for ( int i = 0; i < steps; i++ ) {
+			points.add(new Pos3(pos0.x + normDir.x * stepSize * i,
+							  pos0.y + normDir.y * stepSize * i,
+							  pos0.z + normDir.z * stepSize * i));
 		}
-		
-		int[][] thetas = new int[(int) Math.floor( (length / minDist) + 2 )][3];
-
-		for ( int i = 0; i < ((length / minDist) + 1); ++i ) {
-			int[] thetas_ = new int[3];
-			thetas_ = (calcIK( pos0[0] + i * inc[0], pos0[1] + i * inc[1], pos0[2] + i * inc[2] ));
-			thetas[i][0] = thetas_[0] * GEAR_RATIO;
-			thetas[i][1] = thetas_[1] * GEAR_RATIO;
-			thetas[i][2] = thetas_[2] * GEAR_RATIO;
-		}
-		
-		List<Integer[]> path = new ArrayList<>();
-		
-		
-		
+		System.out.println(points.toString());
+	}
+	
+	public void CalcAngles(List<Pos3> points){
+		//TODO
 	}
 
 	public void moveHome() {
@@ -347,63 +328,60 @@ public class DeltaBot {
 		setMotorAngles( 0, 0, 0 );
 	}
 
-	public void moveToPos(int[] posd, int minDist) {
-			
-		int[] pos0 = new int[3];
-		pos0 = getCurrentPos();
-
-		float length = getDist( posd, pos0 );
-
-		float[] inc = new float[3];
-		for ( int i = 0; i < inc.length; ++i ) {
-			inc[i] = (posd[i] - pos0[i]) / (length / minDist);
-		}
-
-		int[][] thetas = new int[(int) Math.floor( (length / minDist) + 2 )][3];
-
-		for ( int i = 0; i < ((length / minDist) + 1); ++i ) {
-			int[] thetas_ = new int[3];
-			thetas_ = (calcIK( pos0[0] + i * inc[0], pos0[1] + i * inc[1], pos0[2] + i * inc[2] ));
-			thetas[i][0] = thetas_[0] * GEAR_RATIO;
-			thetas[i][1] = thetas_[1] * GEAR_RATIO;
-			thetas[i][2] = thetas_[2] * GEAR_RATIO;
-		}
-
-		for ( int i = 0; i < thetas.length; ++i ) {
-			// System.out.println( "Waypoint " + i + ":" + " t1 = " + thetas[i][0] + " t2 = " + thetas[i][1]
-			// + " t3 = " + thetas[i][2] );
-
-			setMotorAngles( thetas[i][0], thetas[i][1], thetas[i][2] );
-			// Delay.msDelay( 50 );
-		}
-		motorsWaitComplete();
-		ev3.getLED().setPattern( 1 );
-		ev3.getAudio().systemSound( 1 );
-		Delay.msDelay( 250 );
-		ev3.getLED().setPattern( 0 );
-
-	}
-	
-	public void moveToPos(int xd, int yd, int zd, int minDist) {
-		int[] posd = new int[] { xd, yd, zd };
-		moveToPos(posd, minDist);
-	}
+//	public void moveToPos(int[] posd, int minDist) {
+//			
+//		int[] pos0 = new int[3];
+//		pos0 = getCurrentPos();
+//
+//		float length = getDist( posd, pos0 );
+//
+//		float[] inc = new float[3];
+//		for ( int i = 0; i < inc.length; ++i ) {
+//			inc[i] = (posd[i] - pos0[i]) / (length / minDist);
+//		}
+//
+//		int[][] thetas = new int[(int) Math.floor( (length / minDist) + 2 )][3];
+//
+//		for ( int i = 0; i < ((length / minDist) + 1); ++i ) {
+//			int[] thetas_ = new int[3];
+//			thetas_ = (calcIK( pos0[0] + i * inc[0], pos0[1] + i * inc[1], pos0[2] + i * inc[2] ));
+//			thetas[i][0] = thetas_[0] * GEAR_RATIO;
+//			thetas[i][1] = thetas_[1] * GEAR_RATIO;
+//			thetas[i][2] = thetas_[2] * GEAR_RATIO;
+//		}
+//
+//		for ( int i = 0; i < thetas.length; ++i ) {
+//			// System.out.println( "Waypoint " + i + ":" + " t1 = " + thetas[i][0] + " t2 = " + thetas[i][1]
+//			// + " t3 = " + thetas[i][2] );
+//
+//			setMotorAngles( thetas[i][0], thetas[i][1], thetas[i][2] );
+//			// Delay.msDelay( 50 );
+//		}
+//		motorsWaitComplete();
+//		ev3.getLED().setPattern( 1 );
+//		ev3.getAudio().systemSound( 1 );
+//		Delay.msDelay( 250 );
+//		ev3.getLED().setPattern( 0 );
+//
+//	}
+//	
+//	public void moveToPos(int xd, int yd, int zd, int minDist) {
+//		Pos3 posd = new Pos3(xd, yd, zd);
+//		moveToPos(posd, minDist);
+//	}
 
 	public static void main(String[] args) {
 
 		DeltaBot delta = new DeltaBot();
 
-		int[] angles = new int[3];
-		angles = delta.getJointAngles();
-		for ( int i = 0; i < angles.length; ++i ) {
-			System.out.println( angles[i] );
-		}
+		Ang3 ang = new Ang3(delta.calcIK( 0,0,0 ));
+		System.out.println( ang.toString() );
 
-		int[] pos = new int[3];
-		pos = delta.getCurrentPos();
-		for ( int i = 0; i < pos.length; ++i ) {
-			System.out.println( pos[i] );
-			
-		}
+		Pos3 pos = new Pos3(delta.getCurrentPos());
+		System.out.println( pos.toString() );
+		
+		delta.lerp( new Pos3(-50,0,-180), 1 );
+		
+		delta.closePorts();
 	}
 }
