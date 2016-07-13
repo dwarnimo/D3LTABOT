@@ -37,14 +37,8 @@ public class DeltaBot {
 	// length of lower arm (length from elbow joint to wrist joint)
 	public static final int FOREARM = 200;
 
-	// length of upper arm squared
-	public static final int BICEP_SQ = BICEP * BICEP;
-
-	// length of lower arm squared
-	public static final int FOREARM_SQ = FOREARM * FOREARM;
-
 	// number of motor revolutions required for one rotation of shoulder joint
-	public static final int GEAR_RATIO = 1; // FIXME
+	public static final int GEAR_RATIO = -24;
 
 	// TRIGONOMETRIC CONSTANTS ====================================================================
 
@@ -98,8 +92,8 @@ public class DeltaBot {
 	}
 
 	/*
-	 *manual calibration sequence. rotate wheel until the arm is in 0 position (horizontal) and the press
-	 * the button to set the new 0 position. repeat for each arm.
+	 * manual calibration sequence. rotate wheel until the arm is in 0 position (horizontal) and the
+	 * press the button to set the new 0 position. repeat for each arm.
 	 */
 	public void calibrate() {
 
@@ -246,22 +240,51 @@ public class DeltaBot {
 	/*
 	 * helper function to generate the joint angle for the YZ-plane for the specified position
 	 */
-	private float CalcAngYZ(Pos3 pos) {
+	private float calcAngYZ(Pos3 pos) {
 
-		pos.y += EE - BASE; //
-		float A = (pos.dot( pos ) + BICEP_SQ - FOREARM_SQ) / (2 * pos.z);
-		float B = pos.y / pos.z;
-		float a = B * B + 1;
-		float b = -2 * A * B;
-		float c = A * A - BICEP_SQ;
-		float D = b * b - 4 * a * c;
-		if ( D < 0 ) {
+		float theta = 0;
+		float L3 = (float) Math.sqrt( FOREARM * FOREARM - pos.x * pos.x );
+		float Ay = -BASE;
+		float PCy = pos.y - EE;
+		float dn = (float) (BICEP + Math.sqrt( FOREARM * FOREARM - (Ay - PCy) * (Ay - PCy) ));
+
+		if ( Math.abs( pos.z ) <= dn ) {
+			
+			float a = (4 * pos.z * pos.z + (2 * Ay - 2 * PCy) * (2 * Ay - 2 * PCy));
+			
+			float b = (-8 * Ay * pos.z * pos.z + (4 * Ay - 4 * PCy)
+						* (BICEP * BICEP - L3 * L3 - Ay * Ay + PCy * PCy + pos.z * pos.z));
+			
+			float c = (4 * Ay * Ay * pos.z * pos.z - (4 * pos.z * pos.z) * (BICEP * BICEP)
+						+ (BICEP * BICEP - L3 * L3 - Ay * Ay + PCy * PCy + pos.z * pos.z)
+						* (BICEP * BICEP - L3 * L3 - Ay * Ay + PCy * PCy + pos.z * pos.z));
+			
+			float D = (float) Math.sqrt( b * b - 4 * a * c );
+			
+			float By1 = (-b - D) / (2 * a);
+			float By2 = (-b + D) / (2 * a);
+
+			if ( Math.abs( By1 ) > Math.abs( By2 ) ) {
+				
+				float Bz1 = (By1 * (2 * Ay - 2 * PCy) + BICEP * BICEP - L3 * L3 - Ay * Ay
+							+ PCy * PCy + pos.z * pos.z) / (2 * pos.z);
+				
+				theta = (float) (Math.atan( Bz1 / (Ay - By1) ) * R2D);
+				
+			} else {
+				
+				float Bz1 = (By2 * (2 * Ay - 2 * PCy) + BICEP * BICEP - L3 * L3 - Ay * Ay
+						+ PCy * PCy + pos.z * pos.z) / (2 * pos.z);
+				
+				theta = (float) (Math.atan( Bz1 / (Ay - By2) ) * R2D);
+				
+			}
+			isValidPos = true;
+			return (float) theta;
+		} else {
 			isValidPos = false;
-			return 0;
 		}
-		float y = (float) ((-b + Math.sqrt( D )) / (2 * a));
-		float z = A - y * B;
-		return (float) (Math.atan2( z, y ) * R2D * GEAR_RATIO);
+		return 0;
 	}
 
 	/*
@@ -269,9 +292,9 @@ public class DeltaBot {
 	 */
 	public Ang3 calcIK(Pos3 pos) {
 
-		float t1 = CalcAngYZ( pos );
-		float t2 = CalcAngYZ( pos.rotZ( 120 * D2R ) );
-		float t3 = CalcAngYZ( pos.rotZ( 240 * D2R ) );
+		float t1 = calcAngYZ( pos ); // 0 deg -> no rotation necessary
+		float t2 = calcAngYZ( pos.rotZ( 120 * D2R ) ); // rotate the coordinate system by 120 deg
+		float t3 = calcAngYZ( pos.rotZ( 240 * D2R ) ); // rotate the coordinate system by 240 deg
 		Ang3 ang = new Ang3( t1, t2, t3 );
 		return ang;
 	}
@@ -324,7 +347,7 @@ public class DeltaBot {
 		// a*z^2 + b*z + c = 0
 		float a = a1 * a1 + a2 * a2 + 1;
 		float b = 2 * (a1 * b1 + a2 * (b2 - y1) - z1);
-		float c = b1 * b1 + (b2 - y1) * (b2 - y1) + z1 * z1 - FOREARM_SQ;
+		float c = b1 * b1 + (b2 - y1) * (b2 - y1) + z1 * z1 - FOREARM * FOREARM;
 
 		// discriminant
 		float d = b * b - 4 * a * c;
@@ -412,7 +435,7 @@ public class DeltaBot {
 
 		setJointAngles( calcIK( pos ) );
 	}
-	
+
 	/*
 	 * move robot to home position
 	 */
@@ -427,11 +450,17 @@ public class DeltaBot {
 
 		DeltaBot delta = new DeltaBot();
 
-		Ang3 ang = new Ang3( delta.calcIK( 0, 0, 0 ) );
-		System.out.println( ang.toString() );
+		Ang3 angles = new Ang3( delta.calcIK( 50, 0, -180 ) );
+		System.out.println( angles.toString() );
 
-		Pos3 pos = new Pos3( delta.getCurrentPos() );
+		Pos3 pos = new Pos3( delta.calcFK( angles ) );
 		System.out.println( pos.toString() );
+
+		// List<Pos3> points = new ArrayList<>();
+		// points = delta.interp( new Pos3(50, 0,-180), 1 );
+		//
+		// List<Ang3> angles = new ArrayList<>();
+		// angles = delta.calcAngles( points );
 
 		delta.closePorts();
 	}

@@ -10,12 +10,6 @@ public class Ang3 {
 		t3 = 0;
 	}
 	
-	public Ang3(float[] ang) {
-		t1 = ang[0];
-		t2 = ang[1];
-		t3 = ang[2];
-	}
-
 	public Ang3(float newT1, float newT2, float newT3) {
 		t1 = newT1;
 		t2 = newT2;
@@ -60,8 +54,7 @@ public class Ang3 {
 
 	public Ang3 getAll() {
 
-		Ang3 ang = new Ang3( t1, t2, t3 );
-		return ang;
+		return ( new Ang3( t1, t2, t3) );
 	};
 
 	public float getT1() {
@@ -80,6 +73,6 @@ public class Ang3 {
 	}	
 	
 	public String toString() {
-		return "t1: " + t1 + " t2: " + t2 + " t3: " + t3;
+		return "T1: " + t1 + "   T2: " + t2 + "   T3: " + t3;
 	}
 }
