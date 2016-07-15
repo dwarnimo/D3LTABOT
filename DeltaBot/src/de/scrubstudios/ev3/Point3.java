@@ -1,22 +1,22 @@
 package de.scrubstudios.ev3;
 
-public class Pos3 {
+public class Point3 {
 
 	public float x, y, z;
 
-	public Pos3() {
+	public Point3() {
 		x = 0;
 		y = 0;
 		z = 0;
 	}
 
-	public Pos3(float x, float y, float z) {
+	public Point3(float x, float y, float z) {
 		this.x = x;
 		this.y = y;
 		this.z = z;
 	}
 
-	public Pos3(Pos3 pos) {
+	public Point3(Point3 pos) {
 		x = pos.x;
 		y = pos.y;
 		z = pos.z;
@@ -28,7 +28,7 @@ public class Pos3 {
 		z = newZ;
 	}
 
-	public void setXYZ(Pos3 newPos) {
+	public void setXYZ(Point3 newPos) {
 		x = newPos.x;
 		y = newPos.y;
 		z = newPos.z;
@@ -46,8 +46,8 @@ public class Pos3 {
 		z = newZ;
 	}
 
-	public Pos3 getXYZ() {
-		return new Pos3(x, y, z);
+	public Point3 getXYZ() {
+		return new Point3(x, y, z);
 	};
 
 	public float getX() {
@@ -62,14 +62,14 @@ public class Pos3 {
 		return z;
 	}
 
-	public float getDistSquared(Pos3 pos2) {
+	public float getDistSquared(Point3 pos2) {
 		return (x - pos2.x) * (x - pos2.x) + (y - pos2.y) * (y - pos2.y) + (z - pos2.z) * (z - pos2.z);
 	}
 
 	/*
 	 * calulate the distance between the current and the specified position
 	 */
-	public float getDist(Pos3 pos2) {
+	public float getDist(Point3 pos2) {
 		return (float) Math.sqrt(getDistSquared(pos2));
 	}
 
@@ -77,9 +77,9 @@ public class Pos3 {
 	 * calculate the norm direction vector from the current to the specified
 	 * position
 	 */
-	public Pos3 normDir(Pos3 pos2) {
+	public Point3 normDir(Point3 pos2) {
 		float dist = getDist(pos2);
-		Pos3 normDir = new Pos3();
+		Point3 normDir = new Point3();
 		normDir.setX((pos2.x - x) / dist);
 		normDir.setY((pos2.y - y) / dist);
 		normDir.setZ((pos2.z - z) / dist);
@@ -90,21 +90,21 @@ public class Pos3 {
 	 * rotate the coordinates about the Z-axis by the specified amount of
 	 * degrees
 	 */
-	public Pos3 rotZ(float ang) {
+	public Point3 rotZ(float ang) {
 		float newX = (float) (x * Math.cos(ang) - y * Math.sin(ang));
 		float newY = (float) (x * Math.sin(ang) + y * Math.cos(ang));
-		Pos3 newPos = new Pos3(newX, newY, z);
+		Point3 newPos = new Point3(newX, newY, z);
 		return newPos;
 	}
 
 	/*
 	 * calculate dot product
 	 */
-	public float dot(Pos3 pos2) {
+	public float dot(Point3 pos2) {
 		return x * pos2.x + y * pos2.y + z * pos2.z;
 	}
 
 	public String toString() {
-		return "X: " + x + "   Y: " + y + "   Z: " + z;
+		return String.format("%8.2f %8.2f %8.2f", x, y, z);
 	}
 }
