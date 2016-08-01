@@ -1,6 +1,5 @@
 package de.scrubstudios.ev3.delta;
 
-import java.rmi.RemoteException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -27,22 +26,21 @@ public class DeltaBot {
 	// ============================================================================================
 
 	// radius from base center to shoulder joint
-	public static final float BASE = 66.4f;
+	public final float base;
 
 	// radius from effector center to wrist joint
-	public static final float EE = 30;
+	public final float ee;
 
-	// length of upper arm (length from shoulder joint to elbow joint)
-	public static final int BICEP = 80;
+	// length of bicep arm (length from shoulder joint to elbow joint)
+	public final int bicep;
 
-	// length of lower arm (length from elbow joint to wrist joint)
-	public static final int FOREARM = 208;
+	// length of forearm arm (length from elbow joint to wrist joint)
+	public final int forearm;
 
 	// number of motor revolutions required for one rotation of shoulder joint
-	public static final int GEAR_RATIO = -24;
+	public final int gearRatio;
 
-	// TRIGONOMETRIC CONSTANTS
-	// ============================================================================================
+	// TRIGONOMETRIC CONSTANTS ====================================================================
 
 	private static final float PI = 3.141592f;
 	private static final float SQRT3 = (float) Math.sqrt(3);
@@ -54,8 +52,7 @@ public class DeltaBot {
 	private static final float D2R = PI / 180; // deg to rad
 	private static final float R2D = 180 / PI; // rad to deg
 
-	// EV3 COMPONENTS
-	// ============================================================================================
+	// EV3 COMPONENTS =============================================================================
 
 	private Brick ev3;
 	private RegulatedMotor[] motors = new RegulatedMotor[3];
@@ -67,11 +64,16 @@ public class DeltaBot {
 
 	private boolean isValidPos = true;
 
-	// CONSTRUCTOR
-	// ============================================================================================
+	// CONSTRUCTOR ================================================================================
 
-	public DeltaBot() {
+	public DeltaBot(float base, float ee, int upper, int lower , int gearRatio) {
 
+		this.base = base;
+		this.ee = ee;
+		this.bicep = upper;
+		this.forearm = lower;
+		this.gearRatio = gearRatio;
+		
 		init();
 		calibrate();
 	}
@@ -84,6 +86,7 @@ public class DeltaBot {
 		motors[0] = new EV3LargeRegulatedMotor(ev3.getPort("A"));
 		motors[1] = new EV3LargeRegulatedMotor(ev3.getPort("B"));
 		motors[2] = new EV3LargeRegulatedMotor(ev3.getPort("C"));
+		
 		poti = new EV3MediumRegulatedMotor(ev3.getPort("D"));
 		ir = new EV3IRSensor(ev3.getPort("S1"));
 		touch = new EV3TouchSensor(ev3.getPort("S2"));
@@ -118,8 +121,7 @@ public class DeltaBot {
 		Sound.beepSequenceUp();
 	}
 
-	// SETTERS & GETTERS
-	// ============================================================================================
+	// SETTERS & GETTERS ==========================================================================
 
 	/*
 	 * set motor speed for all motors
@@ -140,7 +142,7 @@ public class DeltaBot {
 	}
 
 	/*
-	 * set and move to the desired MOTOR angles
+	 * move to the desired MOTOR angles
 	 */
 	public void setMotorAngles(Angle3 ang) {
 		motors[0].rotateTo((int) ang.t1, true);
@@ -156,30 +158,21 @@ public class DeltaBot {
 	}
 
 	/*
-	 * set and move to the desired JOINT angles
+	 * move to the desired JOINT angles
 	 */
 	public void setJointAngles(Angle3 ang) {
-		motors[0].rotateTo((int) ang.t1 * GEAR_RATIO, true);
-		motors[1].rotateTo((int) ang.t2 * GEAR_RATIO, true);
-		motors[2].rotateTo((int) ang.t3 * GEAR_RATIO, true);
+		motors[0].rotateTo((int) ang.t1 * gearRatio, true);
+		motors[1].rotateTo((int) ang.t2 * gearRatio, true);
+		motors[2].rotateTo((int) ang.t3 * gearRatio, true);
 	}
 
 	public void setJointAngles(int t1, int t2, int t3) {
 		int[] ang = new int[] { t1, t2, t3 };
 		for (int i = 0; i < motors.length; ++i) {
-			motors[i].rotateTo(ang[i] * GEAR_RATIO, true);
+			motors[i].rotateTo(ang[i] * gearRatio, true);
 		}
 	}
-
-	/*
-	 * get the current angles of the shoulder joints
-	 */
-	public Angle3 getJointAngles() {
-		return new Angle3(motors[0].getTachoCount() / GEAR_RATIO, 
-						  motors[1].getTachoCount() / GEAR_RATIO,
-						  motors[2].getTachoCount() / GEAR_RATIO);
-	}
-
+	
 	/*
 	 * get the actual motor angles for the current joint angles
 	 */
@@ -190,14 +183,22 @@ public class DeltaBot {
 	}
 
 	/*
+	 * get the current angles of the shoulder joints
+	 */
+	public Angle3 getJointAngles() {
+		return new Angle3(motors[0].getTachoCount() / gearRatio, 
+						  motors[1].getTachoCount() / gearRatio,
+						  motors[2].getTachoCount() / gearRatio);
+	}
+
+	/*
 	 * get the current end-effector position
 	 */
 	public Point3 getCurrentPos() {
 		return calcFK(getJointAngles());
 	}
 
-	// MISC METHODS
-	// ============================================================================================
+	// MISC METHODS ===============================================================================
 
 	/*
 	 * wait until all motors have stopped moving
@@ -220,46 +221,66 @@ public class DeltaBot {
 		touch.close();
 	}
 
-	// INVERSE KINEMATICS
-	// ============================================================================================
+	// INVERSE KINEMATICS =========================================================================
 
-	/*
-	 * helper function to generate the joint angle for the YZ-plane for the
-	 * specified position
+	/**
+	 * Helper function to calculate the shoulder joint angle for the YZ-plane for the
+	 * specified position.
+	 * <p>
+	 * <b>Point A</b> : Position of shoulder joint (actuated revolute joint between base plate and bicep)</br>
+	 * <b>Point B</b> : Position of elbow joint (ball joint between bicep and forearm)</br>
+	 * <b>Point C</b> : Position of wrist joint (ball joint between forarm and ee plate)</p>
+	 * <p>
+	 * <b>Ax, Bx</b> = 0 because we are operating strictly on the YZ-plane</br>
+	 * <b>Ay</b> = base center shifted to edge (-base)</br>
+	 * <b>Az</b> = 0 because the baseplate is located at the origin of the reference frame</p>
+	 * <p>
+	 * <b>By, Bz</b> : These are the coordinates we need to find in order to determine the shoudler joint angle</p>
+	 * <p>
+	 * <b>Cx</b> : Same as end-effector X-coordinate (pos.x)</br>
+	 * <b>Cy</b> : End-effector Y-coordinate offset by end-effector radius (pos.y - ee)</br>
+	 * <b>Cz</b> : Same as end-effector Z-coordinate (pos.z)</p>
+	 * 
+	 * @param pos The desired end-effector position
+	 * @return Joint angle <b>theta</b> necessary to reach the desired end-effector position multiplied by the gear ratio
+	 * @author dwarnimo
 	 */
 	private float calcAngYZ(Point3 pos) {
-		float theta = 0;
-		float L3 = (float) Math.sqrt(FOREARM * FOREARM - pos.x * pos.x);
-		float Ay = -BASE;
-		float PCy = pos.y - EE;
-		float dn = (float) (BICEP + Math.sqrt(FOREARM * FOREARM - (Ay - PCy) * (Ay - PCy)));
+		float Ay = -base;
+		float Cx = pos.x;
+		float Cy = pos.y - ee;
+		float Cz = pos.z;
+		
+		//projection of forearm onto YZ-plane
+		float forearmYZ = (float) Math.sqrt(forearm * forearm - Cx * Cx);
+		
+		float dn = (float) (bicep + Math.sqrt(forearm * forearm - (Ay - Cy) * (Ay - Cy)));
+		
+		if (Math.abs(Cz) <= dn) {
 
-		if (Math.abs(pos.z) <= dn) {
-
-			float a = (4 * pos.z * pos.z + (2 * Ay - 2 * PCy) * (2 * Ay - 2 * PCy));
+			float helper = (bicep * bicep - forearmYZ * forearmYZ - Ay * Ay + Cy * Cy + Cz * Cz);
 			
-			float b = (-8 * Ay * pos.z * pos.z + (4 * Ay - 4 * PCy) * (BICEP * BICEP 
-					- L3 * L3 - Ay * Ay + PCy * PCy + pos.z * pos.z));
-
-			float c = (4 * Ay * Ay * pos.z * pos.z - (4 * pos.z * pos.z) * (BICEP * BICEP) 
-					+ (BICEP * BICEP - L3 * L3 - Ay * Ay + PCy * PCy + pos.z * pos.z) 
-					* (BICEP * BICEP - L3 * L3 - Ay * Ay + PCy * PCy + pos.z * pos.z));
+			float a = (4 * Cz * Cz + (2 * Ay - 2 * Cy) * (2 * Ay - 2 * Cy));
+			float b = (-8 * Ay * Cz * Cz + (4 * Ay - 4 * Cy) * helper);
+			float c = (4 * Ay * Ay * Cz * Cz - (4 * Cz * Cz) * (bicep * bicep) + helper * helper);
 
 			float D = (float) Math.sqrt(b * b - 4 * a * c);
 
 			float By1 = (-b - D) / (2 * a);
 			float By2 = (-b + D) / (2 * a);
 
+			float theta;
+			
 			if (Math.abs(By1) > Math.abs(By2)) {
-				float Bz1 = (By1 * (2 * Ay - 2 * PCy) + BICEP * BICEP 
-						  - L3 * L3 - Ay * Ay + PCy * PCy + pos.z * pos.z) / (2 * pos.z);
+				float Bz1 = (By1 * (2 * Ay - 2 * Cy) + bicep * bicep 
+						  - forearmYZ * forearmYZ - Ay * Ay + Cy * Cy + Cz * Cz) / (2 * Cz);
 				
-				theta = (float) (Math.atan(Bz1 / (Ay - By1)) * R2D);
+				theta = (float) (Math.atan(Bz1 / (Ay - By1)) * R2D * gearRatio);
 			} else {
-				float Bz1 = (By2 * (2 * Ay - 2 * PCy) + BICEP * BICEP 
-						  - L3 * L3 - Ay * Ay + PCy * PCy + pos.z * pos.z) / (2 * pos.z);
+				float Bz1 = (By2 * (2 * Ay - 2 * Cy) + bicep * bicep 
+						  - forearmYZ * forearmYZ - Ay * Ay + Cy * Cy + Cz * Cz) / (2 * Cz);
 				
-				theta = (float) (Math.atan(Bz1 / (Ay - By2)) * R2D);
+				theta = (float) (Math.atan(Bz1 / (Ay - By2)) * R2D * gearRatio);
 			}
 			isValidPos = true;
 			return theta;
@@ -269,10 +290,16 @@ public class DeltaBot {
 		return 0;
 	}
 
-	/*
-	 * calculate the joint angles t1, t2, t3 for the specified position.
-	 * for t2 and t3 the word coordinate system is rotated by 120 and 240
-	 * degrees respectively.
+	/**
+	 * Calculates the 3 motor angles required to reach the desired end-effector position
+	 * by calling the <b>calcAngYZ</b> function for 3 different reference frames:</br>
+	 * <p>
+	 * <b>XYZ</b> : World Coordinate System (WCS)</br>
+	 * <b>X'Y'Z'</b>: WCS rotated by 120 degrees CCW</br>
+	 * <b>X"Y"Z"</b> : WCS rotated by 240 degrees CCW</br>
+	 * </p>
+	 * @param pos The desired end-effector position
+	 * @return Joint angles <b>t1, t2, t3</b> multiplied by the gear ratio
 	 */
 	public Angle3 calcIK(Point3 pos) {
 		float t1 = calcAngYZ(pos);
@@ -281,35 +308,45 @@ public class DeltaBot {
 		return new Angle3(t1, t2, t3);
 	}
 
-	/*
-	 * calculate the joint angles t1, t2, t3 for the specified coordinates x, y, z
+	/**
+	 * Calculates the 3 motor angles required to reach the desired end-effector position
+	 * by calling the <b>calcAngYZ</b> function for 3 different reference frames:</br>
+	 * <p>
+	 * <b>XYZ</b> : World Coordinate System (WCS)</br>
+	 * <b>X'Y'Z'</b>: WCS rotated by 120 degrees CCW</br>
+	 * <b>X"Y"Z"</b> : WCS rotated by 240 degrees CCW</br>
+	 * </p>
+	 * @param x The desired end-effector x-Coordinate
+	 * @param y The desired end-effector y-Coordinate
+	 * @param z The desired end-effector z-Coordinate
+	 * @return Joint angles <b>t1, t2, t3</b> multiplied by the gear ratio
 	 */
 	public Angle3 calcIK(float x, float y, float z) {
 		return calcIK(new Point3(x, y, z));
 	}
 
-	// FORWARD KINEMATICS
-	// ============================================================================================
+	// FORWARD KINEMATICS =========================================================================
 
-	/*
-	 * calculate the end-effector position for the specified joint angles t1,
-	 * t2, t3
+	/**
+	 * Calculates the EE position for the specified joint angles.
+	 * @param ang Angle3 containing the joint angles <b>theta1, 2, 3</b> from which to determine the EE position
+	 * @return Point3 containing the <b>XYZ</b> coordinates of the calculated position
 	 */
 	public Point3 calcFK(Angle3 ang) {
 		ang.t1 *= D2R;
 		ang.t2 *= D2R;
 		ang.t3 *= D2R;
 
-		float y1 = (float) -(BASE - EE + BICEP * Math.cos(ang.t1));
-		float z1 = (float) (-BICEP * Math.sin(ang.t1));
+		float y1 = (float) -(base - ee + bicep * Math.cos(ang.t1));
+		float z1 = (float) (-bicep * Math.sin(ang.t1));
 
-		float y2 = (float) ((BASE - EE + BICEP * Math.cos(ang.t2)) * SIN30);
+		float y2 = (float) ((base - ee + bicep * Math.cos(ang.t2)) * SIN30);
 		float x2 = y2 * TAN60;
-		float z2 = (float) (-BICEP * Math.sin(ang.t2));
+		float z2 = (float) (-bicep * Math.sin(ang.t2));
 
-		float y3 = (float) ((BASE - EE + BICEP * Math.cos(ang.t3)) * SIN30);
+		float y3 = (float) ((base - ee + bicep * Math.cos(ang.t3)) * SIN30);
 		float x3 = -y3 * TAN60;
-		float z3 = (float) (-BICEP * Math.sin(ang.t3));
+		float z3 = (float) (-bicep * Math.sin(ang.t3));
 
 		float dnm = (y2 - y1) * x3 - (y3 - y1) * x2;
 
@@ -328,7 +365,7 @@ public class DeltaBot {
 		// a*z^2 + b*z + c = 0
 		float a = a1 * a1 + a2 * a2 + 1;
 		float b = 2 * (a1 * b1 + a2 * (b2 - y1) - z1);
-		float c = b1 * b1 + (b2 - y1) * (b2 - y1) + z1 * z1 - FOREARM * FOREARM;
+		float c = b1 * b1 + (b2 - y1) * (b2 - y1) + z1 * z1 - forearm * forearm;
 
 		// discriminant
 		float d = b * b - 4 * a * c;
@@ -343,21 +380,25 @@ public class DeltaBot {
 		return new Point3(x0, y0, z0);
 	}
 
-	/*
-	 * calculate the end-effector position for the specified joint angles t1,
-	 * t2, t3
+	/**
+	 * Calculates the EE position for the specified joint angles.
+	 * @param t1 Joint angle theta1
+	 * @param t2 Joint angle theta2
+	 * @param t3 Joint angle theta3
+	 * @return Point3 containing the <b>XYZ</b> coordinates of the calculated position
 	 */
 	public Point3 calcFK(float t1, float t2, float t3) {
 		return calcFK(new Angle3(t1, t2, t3));
 	}
 
-	// PATH GENERATION
-	// ============================================================================================
+	// PATH GENERATION ============================================================================
 
-	/*
-	 * calculate points between current and desired position using linear
-	 * interpolation. a lower minimum distance means more intermediate points
-	 * are generated.
+	/**
+	 * Calculates intermediate points between the current and the desired position using linear 
+	 * interpolation.</br>
+	 * A smaller <b>minDist</b> means that more intermediate points are generated.</br>
+	 * @param posd The desired end-effector position
+	 * @return <b>points</b>, A list containing the calculated intermediate points
 	 */
 	private List<Point3> interp(Point3 posd) {
 		Point3 pos0 = new Point3(getCurrentPos());
@@ -377,9 +418,15 @@ public class DeltaBot {
 		return points;
 	}
 
-	/*
-	 * iterate through the list of points and calculate the joint angles for
-	 * each point
+	/**
+	 * Iterates through the list of intermediate points and calculates the joint
+	 * angles at each point.</br>
+	 * These angles are stored in a new list.</br>
+	 * 
+	 * @param points
+	 *            The list of interpolated points between the current and the
+	 *            desired position
+	 * @return <b>angles</b>, A list of path angles
 	 */
 	private List<Angle3> calcAngles(List<Point3> points) {
 		List<Angle3> angles = new ArrayList<>();
@@ -390,57 +437,57 @@ public class DeltaBot {
 		return angles;
 	}
 
-	// MOVEMENT METHODS
-	// ============================================================================================
+	// MOVEMENT METHODS ===========================================================================
 
-	/*
-	 * move smoothly to the desired position in a straight line. intermediate
-	 * points are calculated using linear interpolation
+	/**
+	 * Move smoothly to the desired position in a straight line.</br>
+	 * Intermediate points are calculated using linear interpolation.</br>
+	 * @param posd The desired end-effector position
 	 */
-	public void moveToPosLin(Point3 posd, int minDist) {
+	public void moveToPosLin(Point3 posd) {
 		List<Angle3> angles = new ArrayList<>();
 		angles = calcAngles(interp(posd));
 		Iterator<Angle3> iter = angles.iterator();
 		while (iter.hasNext()) {
 			Angle3 currentAngles = iter.next();
-			setJointAngles(currentAngles);
-			Delay.msDelay(25);
+			setMotorAngles(currentAngles);
+			Delay.msDelay(50);
 		}
 		motorsWaitComplete();
 	}
 
-	/*
-	 * move directly to the desired position without using intermediate points
+	/**
+	 * Move directly to the desired position without intermediate points.
+	 * @param pos The desired end-effector position
 	 */
 	public void moveToPosDirect(Point3 pos) {
-		setJointAngles(calcIK(pos));
+		setMotorAngles(calcIK(pos));
 	}
 
-	/*
-	 * move robot to home position
+	/**
+	 * Move arms to the home position. (<b>t1, t2, t3</b> = 0)
 	 */
 	public void moveHome() {
 		setMotorAngles(0, 0, 0);
 	}
 
-	// MAIN METHOD
-	// ============================================================================================
+	// MAIN METHOD ================================================================================
 
 	public static void main(String[] args) {
-		DeltaBot delta = new DeltaBot();
+		DeltaBot delta = new DeltaBot(66.4f, 30, 80, 208, -24);
 
 		delta.setMotorSpeed(800);
 		delta.setMotorAcc(1000);
 
-		delta.moveToPosLin(new Point3(0, 0, -200), 1);
+		delta.moveToPosLin(new Point3(0, 0, -200));
 		delta.motorsWaitComplete();
 		Delay.msDelay(2000);
 
-		delta.moveToPosLin(new Point3(-50, 0, -200), 1);
+		delta.moveToPosLin(new Point3(-50, 0, -200));
 		delta.motorsWaitComplete();
 		Delay.msDelay(2000);
-
-		delta.moveToPosLin(new Point3(50, 0, -180), 1);
+		
+		delta.moveToPosLin(new Point3(50, 0, -200));
 		delta.motorsWaitComplete();
 		Delay.msDelay(2000);
 
