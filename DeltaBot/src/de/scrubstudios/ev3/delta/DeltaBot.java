@@ -96,7 +96,7 @@ public class DeltaBot {
 
 	/*
 	 * manual calibration sequence. rotate wheel until the arm is in 0 position
-	 * (horizontal) and the press the button to set the new 0 position. repeat
+	 * (horizontal) and then press the button to set the new 0 position. repeat
 	 * for each arm.
 	 */
 	public void calibrate() {
@@ -197,6 +197,36 @@ public class DeltaBot {
 	public Point3 getCurrentPos() {
 		return calcFK(getJointAngles());
 	}
+	
+	public boolean isJointMoving(int joint) {
+
+		return motors[joint].isMoving();
+	}
+	
+	public boolean areJointsMoving() {
+
+		return motors[0].isMoving() || motors[1].isMoving() || motors[2].isMoving();
+	}
+	
+	public double getJointPosition(int joint) {
+
+		return motors[joint].getTachoCount() / gearRatio;
+	}
+	
+	public int getJointTachoCount(int joint) {
+
+		return motors[joint].getTachoCount();
+	}
+	
+	public int getJointLimitAngle(int joint) {
+
+		return motors[joint].getLimitAngle();
+	}
+	
+	public int getJointDistance(int joint) {
+
+		return motors[joint].getLimitAngle() - motors[joint].getTachoCount();
+	}
 
 	// MISC METHODS ===============================================================================
 
@@ -224,7 +254,7 @@ public class DeltaBot {
 	// INVERSE KINEMATICS =========================================================================
 
 	/**
-	 * Helper function to calculate the shoulder joint angle for the YZ-plane for the
+	 * Helper function to calculate the shoulder joint angle in the YZ-plane for the
 	 * specified position.
 	 * <p>
 	 * <b>Point A</b> : Position of shoulder joint (actuated revolute joint between base plate and bicep)</br>
@@ -451,7 +481,38 @@ public class DeltaBot {
 		while (iter.hasNext()) {
 			Angle3 currentAngles = iter.next();
 			setMotorAngles(currentAngles);
-			Delay.msDelay(50);
+			
+			int epsilon = 2;
+			float currentTarget1, currentTarget2, currentTarget3;
+			
+			while ( true ) {
+
+				currentTarget1 = currentAngles.t1 * gearRatio;
+				currentTarget2 = currentAngles.t2 * gearRatio;
+				currentTarget3 = currentAngles.t3 * gearRatio;
+
+				if ( !areJointsMoving() )
+					break;
+				else {
+					boolean needWait1 = isJointMoving(0) && ((getJointDistance(0) > 0 && currentTarget1 < getJointLimitAngle(0))
+							|| (getJointDistance(0) < 0 && currentTarget1 > getJointLimitAngle(0)));
+					
+					boolean needWait2 = isJointMoving(1) && ((getJointDistance(1) > 0 && currentTarget2 < getJointLimitAngle(1))
+							|| (getJointDistance(1) < 0 && currentTarget2 > getJointLimitAngle(1)));
+					
+					boolean needWait3 = isJointMoving(2) && ((getJointDistance(2) > 0 && currentTarget3 < getJointLimitAngle(2))
+							|| (getJointDistance(2) < 0 && currentTarget3 > getJointLimitAngle(2)));
+
+					if ( !needWait1 && !needWait2 && !needWait3) {
+						// System.out.println("Starting early!");
+						boolean startNext1 = !isJointMoving(0) || ((Math.abs( getJointDistance(0) ) <= epsilon));
+						boolean startNext2 = !isJointMoving(1) || ((Math.abs( getJointDistance(1) ) <= epsilon));
+						boolean startNext3 = !isJointMoving(2) || ((Math.abs( getJointDistance(2) ) <= epsilon));
+						if ( startNext1 && startNext2 && startNext3)
+							break;
+					}
+				}
+			}	
 		}
 		motorsWaitComplete();
 	}
@@ -477,17 +538,33 @@ public class DeltaBot {
 		DeltaBot delta = new DeltaBot(66.4f, 30, 80, 208, -24);
 
 		delta.setMotorSpeed(800);
-		delta.setMotorAcc(1000);
+		delta.setMotorAcc(3000);
 
-		delta.moveToPosLin(new Point3(0, 0, -200));
+		delta.moveToPosDirect(new Point3(0, 0, -200));
 		delta.motorsWaitComplete();
 		Delay.msDelay(2000);
 
-		delta.moveToPosLin(new Point3(-50, 0, -200));
+		delta.moveToPosDirect(new Point3(-80, 0, -200));
 		delta.motorsWaitComplete();
 		Delay.msDelay(2000);
 		
-		delta.moveToPosLin(new Point3(50, 0, -200));
+		delta.moveToPosDirect(new Point3(80, 0, -200));
+		delta.motorsWaitComplete();
+		Delay.msDelay(2000);
+		
+		delta.moveToPosDirect(new Point3(0, 0, -230));
+		delta.motorsWaitComplete();
+		Delay.msDelay(2000);
+		
+		delta.moveToPosDirect(new Point3(0, 0, -180));
+		delta.motorsWaitComplete();
+		Delay.msDelay(2000);
+		
+		delta.moveToPosDirect(new Point3(30, 50, -230));
+		delta.motorsWaitComplete();
+		Delay.msDelay(2000);
+		
+		delta.moveToPosDirect(new Point3(-30, -50, -230));
 		delta.motorsWaitComplete();
 		Delay.msDelay(2000);
 
